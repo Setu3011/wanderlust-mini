@@ -29,16 +29,15 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                dir('backend') {
-                    sh '''
-                        echo 🐳 Building Docker image...
-                        docker build -t $DOCKER_IMAGE .
-                    '''
-                }
-            }
-        }
+       stage('Build Docker Image') {
+    steps {
+        sh '''
+            echo 🐳 Building Docker image...
+            docker build -t $DOCKER_IMAGE -f Dockerfile .
+        '''
+    }
+}
+
 
         stage('Push Docker Image to DockerHub') {
             steps {

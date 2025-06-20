@@ -2,26 +2,27 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "setu3011/wanderlust-mini"
-        EC2_IP = "13.60.31.176"
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub') // Jenkins credentials ID
+        REMOTE_USER = 'ubuntu'
+        REMOTE_HOST = '13.60.31.176'
     }
 
     stages {
-        stage('Clone Repo') {
+        stage('Checkout Code') {
             steps {
-                git url: 'https://github.com/Setu3011/wanderlust-mini.git', branch: 'master'
+                git 'https://github.com/Setu3011/wanderlust-mini.git'
             }
         }
 
-        stage('Use Existing node_modules') {
+        stage('Skip NPM Install') {
             steps {
                 dir('backend') {
                     sh '''
-                        echo 📦 Skipping npm install. Using existing node_modules...
-                        if [ -d "node_modules" ]; then
-                            echo ✅ node_modules exists.
+                        echo 📦 Skipping npm install...
+                        if [ -d node_modules ]; then
+                            echo ✅ node_modules already exists
                         else
-                            echo ❌ node_modules not found. Please install manually on EC2 or before running.
+                            echo ❌ node_modules missing. Exiting.
                             exit 1
                         fi
                     '''
@@ -29,50 +30,45 @@ pipeline {
             }
         }
 
-       stage('Build Docker Image') {
-    steps {
-        sh '''
-            echo 🐳 Building Docker image...
-            docker build -t $DOCKER_IMAGE -f Dockerfile .
-        '''
-    }
-}
-
+        stage('Build Docker Image') {
+            steps {
+                dir('backend') {
+                    sh '''
+                        echo 🐳 Building Docker image...
+                        docker build -t setu3011/wanderlust-mini -f Dockerfile .
+                    '''
+                }
+            }
+        }
 
         stage('Push Docker Image to DockerHub') {
             steps {
-                withDockerRegistry(credentialsId: 'dockerhub', url: '') {
-                    sh '''
-                        echo 📤 Pushing image to DockerHub...
-                        docker push $DOCKER_IMAGE
-                    '''
+                withDockerRegistry([credentialsId: 'dockerhub', url: '']) {
+                    sh 'docker push setu3011/wanderlust-mini'
                 }
             }
         }
 
         stage('Deploy on EC2') {
             steps {
-                sshagent (credentials: ['shell-scripting-key']) {
-                    sh '''
-                        echo 🚀 Deploying on EC2...
-                        ssh -o StrictHostKeyChecking=no ubuntu@$EC2_IP '
-                            docker pull $DOCKER_IMAGE &&
-                            docker stop wanderlust || true &&
-                            docker rm wanderlust || true &&
-                            docker run -d -p 8000:8000 --name wanderlust $DOCKER_IMAGE
-                        '
-                    '''
-                }
+                sh '''
+                echo 🚀 Deploying on EC2...
+                ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST << EOF
+                    docker rm -f wanderlust || true
+                    docker pull setu3011/wanderlust-mini
+                    docker run -d -p 3000:3000 --name wanderlust setu3011/wanderlust-mini
+                EOF
+                '''
             }
         }
     }
 
     post {
-        success {
-            echo '✅ Deployment Successful!'
-        }
         failure {
             echo '❌ Deployment Failed. Please Check Logs.'
+        }
+        success {
+            echo '✅ Deployment Successful! Visit http://13.60.31.176:3000'
         }
     }
 }

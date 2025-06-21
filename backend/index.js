@@ -1,23 +1,15 @@
 const express = require('express');
 const app = express();
-const path = require('path');
+const port = 3000;
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.set('views', path.join(__dirname, 'views'));
+// Serve static files (HTML/CSS) from 'public' folder
+app.use(express.static('public'));
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views/index.html'));
+// Example backend route
+app.get('/api/hello', (req, res) => {
+  res.json({ message: 'Hello from backend!' });
 });
 
-app.get('/about', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views/about.html'));
-});
-
-app.get('/contact', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views/contact.html'));
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`🚀 Server running at http://localhost:${port}`);
 });
